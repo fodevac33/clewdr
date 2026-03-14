@@ -23,7 +23,8 @@ use super::{CONFIG_PATH, ENDPOINT_URL};
 use crate::{
     Args,
     config::{
-        CC_CLIENT_ID, CookieStatus, UselessCookie, default_check_update, default_ip,
+        CC_CLIENT_ID, CookieStatus, DEFAULT_CC_VERSION, UselessCookie, default_check_update,
+        default_ip,
         default_max_retries, default_port, default_skip_cool_down, default_use_real_roles,
     },
     error::ClewdrError,
@@ -126,6 +127,8 @@ pub struct ClewdrConfig {
     #[serde(default)]
     pub claude_code_client_id: Option<String>,
     #[serde(default)]
+    pub claude_code_version: Option<String>,
+    #[serde(default)]
     pub custom_system: Option<String>,
 
     // Skip field, can hot reload
@@ -163,6 +166,7 @@ impl Default for ClewdrConfig {
             skip_rate_limit: default_skip_cool_down(),
             skip_normal_pro: false,
             claude_code_client_id: None,
+            claude_code_version: None,
             custom_system: None,
             no_fs: false,
             log_to_file: false,
@@ -242,6 +246,13 @@ impl ClewdrConfig {
         self.claude_code_client_id
             .as_deref()
             .unwrap_or(CC_CLIENT_ID)
+            .to_string()
+    }
+
+    pub fn cc_version(&self) -> String {
+        self.claude_code_version
+            .as_deref()
+            .unwrap_or(DEFAULT_CC_VERSION)
             .to_string()
     }
 

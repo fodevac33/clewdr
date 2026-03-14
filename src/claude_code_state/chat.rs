@@ -22,8 +22,16 @@ use crate::{
 
 pub(super) const CLAUDE_BETA_BASE: &str = "oauth-2025-04-20";
 const CLAUDE_BETA_CONTEXT_1M_TOKEN: &str = "context-1m-2025-08-07";
+const CLAUDE_BETA_INTERLEAVED_THINKING: &str = "interleaved-thinking-2025-05-14";
+const CLAUDE_BETA_OUTPUT_128K: &str = "output-128k-2025-02-19";
+const CLAUDE_BETA_TOKEN_EFFICIENT_TOOLS: &str = "token-efficient-tools-2025-02-19";
+const CLAUDE_BETA_ADVANCED_TOOL_USE: &str = "advanced-tool-use-2025-11-20";
+const CLAUDE_BETA_FINE_GRAINED_TOOL_STREAMING: &str = "fine-grained-tool-streaming-2025-05-14";
+const CLAUDE_BETA_FAST_MODE: &str = "fast-mode-2026-02-01";
+const CLAUDE_BETA_EFFORT: &str = "effort-2025-11-24";
+const CLAUDE_BETA_COMPACT: &str = "compact-2026-01-12";
+const CLAUDE_BETA_PROMPT_CACHING_SCOPE: &str = "prompt-caching-scope-2026-01-05";
 const CLAUDE_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
-const CLAUDE_CODE_USER_AGENT: &str = "claude-code/2.0.32";
 pub(super) const CLAUDE_API_VERSION: &str = "2023-06-01";
 
 impl ClaudeCodeState {
@@ -255,7 +263,10 @@ impl ClaudeCodeState {
             .request(Method::GET, CLAUDE_USAGE_URL)
             .bearer_auth(access_token)
             .header(ACCEPT, "application/json, text/plain, */*")
-            .header(USER_AGENT, CLAUDE_CODE_USER_AGENT)
+            .header(
+                USER_AGENT,
+                format!("claude-code/{}", CLEWDR_CONFIG.load().cc_version()),
+            )
             .header("anthropic-beta", CLAUDE_BETA_BASE)
             .send()
             .await
@@ -609,6 +620,15 @@ impl ClaudeCodeState {
         if use_context_1m {
             push(CLAUDE_BETA_CONTEXT_1M_TOKEN);
         }
+        push(CLAUDE_BETA_INTERLEAVED_THINKING);
+        push(CLAUDE_BETA_OUTPUT_128K);
+        push(CLAUDE_BETA_TOKEN_EFFICIENT_TOOLS);
+        push(CLAUDE_BETA_ADVANCED_TOOL_USE);
+        push(CLAUDE_BETA_FINE_GRAINED_TOOL_STREAMING);
+        push(CLAUDE_BETA_FAST_MODE);
+        push(CLAUDE_BETA_EFFORT);
+        push(CLAUDE_BETA_COMPACT);
+        push(CLAUDE_BETA_PROMPT_CACHING_SCOPE);
         if let Some(extra) = extra {
             for token in extra.split(',') {
                 push(token);
@@ -619,23 +639,27 @@ impl ClaudeCodeState {
 
     fn auto_1m_probe_channel(model: &str) -> Option<Claude1mChannel> {
         let m = model.to_ascii_lowercase();
-        if Self::is_sonnet_1m_probe_model(&m) {
+        // Opus 4.6 and Sonnet 4.6 have native 1M context — no probe needed.
+        // Sonnet 4.5 and Sonnet 4.0 still require the context-1m beta header.
+        // All other Opus models (4.5, 4.1, 4.0) are 200k only — probing is pointless.
+        if Self::is_native_1m_model(&m) {
+            None
+        } else if Self::is_legacy_sonnet_1m_probe_model(&m) {
             Some(Claude1mChannel::Sonnet)
-        } else if Self::is_opus_1m_probe_model(&m) {
-            Some(Claude1mChannel::Opus)
         } else {
             None
         }
     }
 
-    fn is_sonnet_1m_probe_model(model: &str) -> bool {
-        // Sonnet 4.x lanes (4 / 4.5 / 4.6 and dated variants) trigger 1M probing.
-        model.starts_with("claude-sonnet-4")
+    fn is_native_1m_model(model: &str) -> bool {
+        // Opus 4.6 and Sonnet 4.6 have 1M context natively, no beta header needed.
+        model.starts_with("claude-opus-4-6") || model.starts_with("claude-sonnet-4-6")
     }
 
-    fn is_opus_1m_probe_model(model: &str) -> bool {
-        // Only Opus 4.6 lane should trigger 1M probing.
-        model.starts_with("claude-opus-4-6")
+    fn is_legacy_sonnet_1m_probe_model(model: &str) -> bool {
+        // Sonnet 4.0 (claude-sonnet-4-20250514) and Sonnet 4.5 (claude-sonnet-4-5-*)
+        // still need the context-1m-2025-08-07 beta header for 1M context.
+        model.starts_with("claude-sonnet-4-5") || model.starts_with("claude-sonnet-4-2")
     }
 
     fn classify_model(model: &str) -> ModelFamily {

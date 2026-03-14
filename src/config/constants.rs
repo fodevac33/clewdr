@@ -8,7 +8,7 @@ use arc_swap::ArcSwap;
 use clap::Parser;
 use url::Url;
 
-use crate::{Args, config::ClewdrConfig};
+use crate::{config::ClewdrConfig, Args};
 
 pub const CONFIG_NAME: &str = "clewdr.toml";
 pub const CLAUDE_ENDPOINT: &str = "https://api.anthropic.com/";
@@ -18,6 +18,7 @@ pub const GEMINI_ENDPOINT: &str = "https://generativelanguage.googleapis.com/";
 pub const CC_CLIENT_ID: &str = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 pub const CC_TOKEN_URL: &str = "https://api.anthropic.com/v1/oauth/token";
 pub const CC_REDIRECT_URI: &str = "https://console.anthropic.com/oauth/code/callback";
+pub const DEFAULT_CC_VERSION: &str = "2.1.73";
 
 pub static ENDPOINT_URL: LazyLock<Url> = LazyLock::new(|| {
     Url::parse(CLAUDE_ENDPOINT).unwrap_or_else(|_| {
@@ -34,7 +35,7 @@ pub static LOG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
         }
         #[cfg(feature = "xdg")]
         {
-            use etcetera::{AppStrategy, AppStrategyArgs, choose_app_strategy};
+            use etcetera::{choose_app_strategy, AppStrategy, AppStrategyArgs};
             let strategy = choose_app_strategy(AppStrategyArgs {
                 top_level_domain: "org".to_string(),
                 author: "Xerxes-2".to_string(),
@@ -60,7 +61,7 @@ pub static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         }
         #[cfg(feature = "xdg")]
         {
-            use etcetera::{AppStrategy, AppStrategyArgs, choose_app_strategy};
+            use etcetera::{choose_app_strategy, AppStrategy, AppStrategyArgs};
             let strategy = choose_app_strategy(AppStrategyArgs {
                 top_level_domain: "org".to_string(),
                 author: "Xerxes-2".to_string(),

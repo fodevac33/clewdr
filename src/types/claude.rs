@@ -155,9 +155,14 @@ impl CreateMessageParams {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Thinking {
-    Enabled { budget_tokens: u64 },
+    Enabled {
+        budget_tokens: u64,
+    },
     Disabled,
-    Adaptive,
+    Adaptive {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        effort: Option<String>,
+    },
 }
 
 impl Thinking {

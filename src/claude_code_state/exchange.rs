@@ -26,8 +26,6 @@ use crate::{
 
 use super::chat::{CLAUDE_API_VERSION, CLAUDE_BETA_BASE};
 
-const CLAUDE_CODE_USER_AGENT: &str = "claude-code/2.0.32";
-
 type ClaudeOauthClient = Client<
     BasicErrorResponse,
     BasicTokenResponse,
@@ -141,7 +139,10 @@ impl ClaudeCodeState {
         let wreq_client = self.get_wreq_client();
         let mut authorize_req = wreq_client
             .post(auth_url.to_string())
-            .header(USER_AGENT, CLAUDE_CODE_USER_AGENT)
+            .header(
+                USER_AGENT,
+                format!("claude-code/{}", CLEWDR_CONFIG.load().cc_version()),
+            )
             .json(&query_params);
         if let Some(cookie) = self.cookie.as_ref() {
             authorize_req = authorize_req.header(COOKIE, cookie.cookie.to_string());
