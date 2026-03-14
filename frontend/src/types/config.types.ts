@@ -36,6 +36,7 @@ export interface ConfigData {
   custom_a: string | null;
   custom_prompt: string;
   claude_code_client_id?: string | null;
+  claude_code_version?: string | null;
   custom_system?: string | null;
 }
 

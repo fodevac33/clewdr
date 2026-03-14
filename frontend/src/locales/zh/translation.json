@@ -154,6 +154,12 @@
         "webCountTokens": "允许 Web 渠道调用 count_tokens",
         "sanitizeMessages": "消息清理（去除空白）"
       },
+      "claudeCode": {
+        "title": "Claude Code 设置",
+        "description": "伪装的 Claude Code 身份。留空使用默认值。",
+        "version": "Claude Code 版本（可选）",
+        "clientId": "OAuth 客户端 ID（可选）"
+      },
       "cookie": {
         "title": "Cookie设置",
         "skipFirstWarning": "跳过一次警告（小黄）",

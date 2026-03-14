@@ -154,6 +154,12 @@
         "webCountTokens": "Enable web count_tokens",
         "sanitizeMessages": "Sanitize messages (trim whitespace)"
       },
+      "claudeCode": {
+        "title": "Claude Code Settings",
+        "description": "Spoofed Claude Code identity. Leave blank for defaults.",
+        "version": "Claude Code Version (optional)",
+        "clientId": "OAuth Client ID (optional)"
+      },
       "cookie": {
         "title": "Cookie Settings",
         "skipFirstWarning": "Skip First Warning",

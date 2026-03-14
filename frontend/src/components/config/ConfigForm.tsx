@@ -149,6 +149,33 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, onChange }) => {
         </div>
       </ConfigSection>
 
+      {/* Claude Code Settings Section */}
+      <ConfigSection
+        title={t("config.sections.claudeCode.title")}
+        description={t("config.sections.claudeCode.description")}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormInput
+            id="claude_code_version"
+            name="claude_code_version"
+            type="text"
+            value={config.claude_code_version || ""}
+            onChange={onChange}
+            label={t("config.sections.claudeCode.version")}
+            placeholder="2.1.73"
+          />
+
+          <FormInput
+            id="claude_code_client_id"
+            name="claude_code_client_id"
+            type="text"
+            value={config.claude_code_client_id || ""}
+            onChange={onChange}
+            label={t("config.sections.claudeCode.clientId")}
+          />
+        </div>
+      </ConfigSection>
+
       {/* Cookie Settings Section */}
       <ConfigSection title={t("config.sections.cookie.title")}>
         <ConfigCheckbox
