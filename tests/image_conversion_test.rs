@@ -14,9 +14,11 @@
 mod tests {
     use anthropic_wire::{
         ContentBlock, CreateMessageParams as ClaudeCreateMessageParams, ImageSource, ImageUrl,
-        Message, MessageContent, Role,
+        MessageContent, Role,
     };
-    use clewdr::types::oai::CreateMessageParams as OaiCreateMessageParams;
+    use clewdr::types::oai::{
+        CreateMessageParams as OaiCreateMessageParams, OaiContent, OaiMessage, OaiRole,
+    };
 
     #[test]
     fn test_image_source_from_data_url_png() {
@@ -150,263 +152,194 @@ mod tests {
         assert!(source2.is_some(), "Should parse mixed case Base64");
         assert!(matches!(source2.unwrap(), ImageSource::Base64 { .. }));
     }
+    fn user_blocks(blocks: Vec<ContentBlock>) -> OaiMessage {
+        OaiMessage {
+            role: OaiRole::User,
+            content: Some(OaiContent::Blocks(blocks)),
+            ..Default::default()
+        }
+    }
+
+    fn text(role: OaiRole, content: &str) -> OaiMessage {
+        OaiMessage {
+            role,
+            content: Some(OaiContent::Text(content.to_string())),
+            ..Default::default()
+        }
+    }
+
+    fn convert(messages: Vec<OaiMessage>) -> ClaudeCreateMessageParams {
+        OaiCreateMessageParams {
+            model: "claude-3-opus".to_string(),
+            messages,
+            ..Default::default()
+        }
+        .into()
+    }
 
     #[test]
     fn test_oai_to_claude_conversion_with_image_url() {
-        // Create OAI format request with ImageUrl
-        let oai_params = OaiCreateMessageParams {
-            model: "claude-3-opus".to_string(),
-            messages: vec![Message {
-                role: Role::User,
-                content: MessageContent::Blocks {
-                    content: vec![
-                        ContentBlock::text("What's in this image?"),
-                        ContentBlock::ImageUrl {
-                            image_url: ImageUrl {
-                                url: "data:image/png;base64,iVBORw0KGgo=".to_string(),
-                            },
-                        },
-                    ],
+        let claude_params = convert(vec![user_blocks(vec![
+            ContentBlock::text("What's in this image?"),
+            ContentBlock::ImageUrl {
+                image_url: ImageUrl {
+                    url: "data:image/png;base64,iVBORw0KGgo=".to_string(),
                 },
-            }],
-            ..Default::default()
-        };
+            },
+        ])]);
 
-        // Convert to Claude format
-        let claude_params: ClaudeCreateMessageParams = oai_params.into();
-
-        // Verify messages were converted
         assert_eq!(claude_params.messages.len(), 1);
 
         let msg = &claude_params.messages[0];
         assert_eq!(msg.role, Role::User);
 
-        // Check content blocks
-        if let MessageContent::Blocks { content } = &msg.content {
-            assert_eq!(content.len(), 2);
-
-            // First block should be text
-            assert!(
-                matches!(&content[0], ContentBlock::Text { text, .. } if text == "What's in this image?")
-            );
-
-            // Second block should be converted to Image (not ImageUrl)
-            match &content[1] {
-                ContentBlock::Image { source, .. } => match source {
-                    ImageSource::Base64 { media_type, data } => {
-                        assert_eq!(media_type, "image/png");
-                        assert_eq!(data, "iVBORw0KGgo=");
-                    }
-                    other => panic!("Expected Base64 image source, got {other:?}"),
-                },
-                other => panic!("Expected Image block, got {other:?}"),
-            }
-        } else {
+        let MessageContent::Blocks { content } = &msg.content else {
             panic!("Expected Blocks content");
+        };
+        assert_eq!(content.len(), 2);
+
+        // First block should be text
+        assert!(
+            matches!(&content[0], ContentBlock::Text { text, .. } if text == "What's in this image?")
+        );
+
+        // Second block should be converted to Image (not ImageUrl)
+        match &content[1] {
+            ContentBlock::Image { source, .. } => match source {
+                ImageSource::Base64 { media_type, data } => {
+                    assert_eq!(media_type, "image/png");
+                    assert_eq!(data, "iVBORw0KGgo=");
+                }
+                other => panic!("Expected Base64 image source, got {other:?}"),
+            },
+            other => panic!("Expected Image block, got {other:?}"),
         }
     }
 
     #[test]
     fn test_oai_to_claude_conversion_with_remote_image_url() {
-        // Create OAI format request with remote ImageUrl
-        let oai_params = OaiCreateMessageParams {
-            model: "claude-3-opus".to_string(),
-            messages: vec![Message {
-                role: Role::User,
-                content: MessageContent::Blocks {
-                    content: vec![
-                        ContentBlock::text("What's in this image?"),
-                        ContentBlock::ImageUrl {
-                            image_url: ImageUrl {
-                                url: "https://example.com/image.png".to_string(),
-                            },
-                        },
-                    ],
+        let claude_params = convert(vec![user_blocks(vec![
+            ContentBlock::text("What's in this image?"),
+            ContentBlock::ImageUrl {
+                image_url: ImageUrl {
+                    url: "https://example.com/image.png".to_string(),
                 },
-            }],
-            ..Default::default()
+            },
+        ])]);
+
+        let MessageContent::Blocks { content } = &claude_params.messages[0].content else {
+            panic!("Expected Blocks content");
         };
-
-        // Convert to Claude format
-        let claude_params: ClaudeCreateMessageParams = oai_params.into();
-
-        if let MessageContent::Blocks { content } = &claude_params.messages[0].content {
-            assert_eq!(content.len(), 2);
-            assert!(matches!(&content[0], ContentBlock::Text { .. }));
-            assert!(matches!(
-                &content[1],
-                ContentBlock::Image {
-                    source: ImageSource::Url { url },
-                    ..
-                } if url == "https://example.com/image.png"
-            ));
-        }
+        assert_eq!(content.len(), 2);
+        assert!(matches!(&content[0], ContentBlock::Text { .. }));
+        assert!(matches!(
+            &content[1],
+            ContentBlock::Image {
+                source: ImageSource::Url { url },
+                ..
+            } if url == "https://example.com/image.png"
+        ));
     }
 
     #[test]
     fn test_oai_to_claude_conversion_filters_invalid_image_url() {
-        let oai_params = OaiCreateMessageParams {
-            model: "claude-3-opus".to_string(),
-            messages: vec![Message {
-                role: Role::User,
-                content: MessageContent::Blocks {
-                    content: vec![
-                        ContentBlock::text("What's in this image?"),
-                        ContentBlock::ImageUrl {
-                            image_url: ImageUrl {
-                                url: "not-a-url".to_string(),
-                            },
-                        },
-                    ],
+        let claude_params = convert(vec![user_blocks(vec![
+            ContentBlock::text("What's in this image?"),
+            ContentBlock::ImageUrl {
+                image_url: ImageUrl {
+                    url: "not-a-url".to_string(),
                 },
-            }],
-            ..Default::default()
+            },
+        ])]);
+
+        let MessageContent::Blocks { content } = &claude_params.messages[0].content else {
+            panic!("Expected Blocks content");
         };
-
-        let claude_params: ClaudeCreateMessageParams = oai_params.into();
-
-        if let MessageContent::Blocks { content } = &claude_params.messages[0].content {
-            assert_eq!(content.len(), 1, "Invalid ImageUrl should be filtered out");
-            assert!(matches!(&content[0], ContentBlock::Text { .. }));
-        }
+        assert_eq!(content.len(), 1, "Invalid ImageUrl should be filtered out");
+        assert!(matches!(&content[0], ContentBlock::Text { .. }));
     }
 
     #[test]
     fn test_oai_to_claude_preserves_existing_image_format() {
-        // Create request with Claude's native Image format
-        let oai_params = OaiCreateMessageParams {
-            model: "claude-3-opus".to_string(),
-            messages: vec![Message {
-                role: Role::User,
-                content: MessageContent::Blocks {
-                    content: vec![ContentBlock::Image {
-                        source: ImageSource::Base64 {
-                            media_type: "image/png".to_string(),
-                            data: "existing_data".to_string(),
-                        },
-                        cache_control: None,
-                    }],
-                },
-            }],
-            ..Default::default()
+        // Claude's native Image format must survive untouched.
+        let claude_params = convert(vec![user_blocks(vec![ContentBlock::Image {
+            source: ImageSource::Base64 {
+                media_type: "image/png".to_string(),
+                data: "existing_data".to_string(),
+            },
+            cache_control: None,
+        }])]);
+
+        let MessageContent::Blocks { content } = &claude_params.messages[0].content else {
+            panic!("Expected Blocks content");
         };
-
-        // Convert to Claude format
-        let claude_params: ClaudeCreateMessageParams = oai_params.into();
-
-        // Verify Image block is preserved as-is
-        if let MessageContent::Blocks { content } = &claude_params.messages[0].content {
-            match &content[0] {
-                ContentBlock::Image { source, .. } => {
-                    assert!(
-                        matches!(source, ImageSource::Base64 { data, .. } if data == "existing_data")
-                    );
-                }
-                other => panic!("Expected Image block, got {other:?}"),
+        match &content[0] {
+            ContentBlock::Image { source, .. } => {
+                assert!(
+                    matches!(source, ImageSource::Base64 { data, .. } if data == "existing_data")
+                );
             }
+            other => panic!("Expected Image block, got {other:?}"),
         }
     }
 
     #[test]
     fn test_oai_to_claude_text_content_unchanged() {
-        // Create simple text request
-        let oai_params = OaiCreateMessageParams {
-            model: "claude-3-opus".to_string(),
-            messages: vec![Message {
-                role: Role::User,
-                content: MessageContent::Text {
-                    content: "Hello, world!".to_string(),
-                },
-            }],
-            ..Default::default()
-        };
+        let claude_params = convert(vec![text(OaiRole::User, "Hello, world!")]);
 
-        // Convert to Claude format
-        let claude_params: ClaudeCreateMessageParams = oai_params.into();
-
-        // Verify text content is unchanged
-        if let MessageContent::Text { content } = &claude_params.messages[0].content {
-            assert_eq!(content, "Hello, world!");
-        } else {
+        let MessageContent::Text { content } = &claude_params.messages[0].content else {
             panic!("Expected Text content");
-        }
+        };
+        assert_eq!(content, "Hello, world!");
     }
 
     #[test]
     fn test_oai_to_claude_empty_message_filtered() {
-        // Create request with only invalid ImageUrl (will be filtered, leaving empty message)
-        let oai_params = OaiCreateMessageParams {
-            model: "claude-3-opus".to_string(),
-            messages: vec![
-                Message {
-                    role: Role::User,
-                    content: MessageContent::Text {
-                        content: "First message".to_string(),
-                    },
+        // The middle message holds only an invalid ImageUrl, so it empties out.
+        let claude_params = convert(vec![
+            text(OaiRole::User, "First message"),
+            user_blocks(vec![ContentBlock::ImageUrl {
+                image_url: ImageUrl {
+                    url: "not-a-url".to_string(),
                 },
-                Message {
-                    role: Role::User,
-                    content: MessageContent::Blocks {
-                        content: vec![ContentBlock::ImageUrl {
-                            image_url: ImageUrl {
-                                url: "not-a-url".to_string(),
-                            },
-                        }],
-                    },
-                },
-                Message {
-                    role: Role::User,
-                    content: MessageContent::Text {
-                        content: "Third message".to_string(),
-                    },
-                },
-            ],
-            ..Default::default()
-        };
+            }]),
+            text(OaiRole::User, "Third message"),
+        ]);
 
-        // Convert to Claude format
-        let claude_params: ClaudeCreateMessageParams = oai_params.into();
-
-        // Empty message should be filtered out, only 2 messages remain
         assert_eq!(claude_params.messages.len(), 2);
 
-        if let MessageContent::Text { content } = &claude_params.messages[0].content {
-            assert_eq!(content, "First message");
-        }
-        if let MessageContent::Text { content } = &claude_params.messages[1].content {
-            assert_eq!(content, "Third message");
-        }
+        assert_eq!(
+            claude_params.messages[0].content,
+            MessageContent::Text {
+                content: "First message".to_string()
+            }
+        );
+        assert_eq!(
+            claude_params.messages[1].content,
+            MessageContent::Text {
+                content: "Third message".to_string()
+            }
+        );
     }
 
     #[test]
     fn test_oai_to_claude_system_content_keeps_only_text() {
-        let oai_params = OaiCreateMessageParams {
-            model: "claude-3-opus".to_string(),
-            messages: vec![
-                Message {
-                    role: Role::System,
-                    content: MessageContent::Blocks {
-                        content: vec![
-                            ContentBlock::text("System prompt"),
-                            ContentBlock::ImageUrl {
-                                image_url: ImageUrl {
-                                    url: "data:image/png;base64,iVBORw0KGgo=".to_string(),
-                                },
-                            },
-                        ],
+        let claude_params = convert(vec![
+            OaiMessage {
+                role: OaiRole::System,
+                content: Some(OaiContent::Blocks(vec![
+                    ContentBlock::text("System prompt"),
+                    ContentBlock::ImageUrl {
+                        image_url: ImageUrl {
+                            url: "data:image/png;base64,iVBORw0KGgo=".to_string(),
+                        },
                     },
-                },
-                Message {
-                    role: Role::User,
-                    content: MessageContent::Text {
-                        content: "Hello".to_string(),
-                    },
-                },
-            ],
-            ..Default::default()
-        };
+                ])),
+                ..Default::default()
+            },
+            text(OaiRole::User, "Hello"),
+        ]);
 
-        let claude_params: ClaudeCreateMessageParams = oai_params.into();
         let system = claude_params.system.expect("system should be present");
         let blocks = system.as_array().expect("system should be an array");
 
