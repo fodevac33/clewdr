@@ -5,7 +5,7 @@
 //! rejected with a 400 rather than ignored. The rules that matter to ClewdR:
 //!
 //! * `temperature`, `top_p` and `top_k` are gone from Claude 4.7 and later
-//!   (Opus 4.7/4.8, Opus 5, Sonnet 5, Fable 5). Setting any of them is a 400.
+//!   (Opus 4.7/4.8, Opus 5/5.5, Sonnet 5, Fable 5). Setting any of them is a 400.
 //! * On Claude 4.6 those three are rejected whenever thinking is active, and on
 //!   4.5 and earlier whenever extended thinking is active.
 //! * From Claude 4.1 onwards `temperature` and `top_p` are mutually exclusive.
@@ -300,8 +300,9 @@ fn generation(name: &str) -> Option<(u32, u32)> {
 ///
 /// Retired ids are omitted: requests to them fail upstream, so listing them
 /// only misleads clients. Kept in sync with Anthropic's model deprecation page.
-pub const ACTIVE_MODELS: [&str; 10] = [
+pub const ACTIVE_MODELS: [&str; 11] = [
     "claude-fable-5",
+    "claude-opus-5-5",
     "claude-opus-5",
     "claude-opus-4-8",
     "claude-opus-4-7",
@@ -355,6 +356,7 @@ mod tests {
     fn parses_every_id_spelling() {
         assert_eq!(generation("claude-opus-4-6"), Some((4, 6)));
         assert_eq!(generation("claude-opus-5"), Some((5, 0)));
+        assert_eq!(generation("claude-opus-5-5"), Some((5, 5)));
         assert_eq!(generation("claude-sonnet-4-5-20250929"), Some((4, 5)));
         assert_eq!(generation("claude-3-7-sonnet-20250219"), Some((3, 7)));
         assert_eq!(generation("claude-haiku-4-5-20251001"), Some((4, 5)));
