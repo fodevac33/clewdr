@@ -2,48 +2,27 @@
 
 ## Version control
 
-This repo is jj, colocated with git. Both `.jj/` and `.git/` exist, so git
-tooling can read the state, but **no git command may write.** Reading is fine:
-`git log`, `git status`, `git diff`, `git show`, `git blame`. Everything else
-is jj's:
+This checkout is plain git; jj is not installed and there is no `.jj/`.
+Upstream uses jj, so its own history and notes may mention it — ignore that
+here and use git.
 
-| not this            | this                                  |
-| ------------------- | ------------------------------------- |
-| `git mv a b`        | `mv a b`                              |
-| `git rm f`          | `rm f`                                |
-| `git add`           | nothing — jj snapshots automatically  |
-| `git commit`        | `jj commit -m "..."`                  |
-| `git checkout`      | `jj new` / `jj edit`                  |
-| `git reset`         | `jj undo`                             |
-| `git restore f`     | `jj restore f`                        |
-| `git stash`         | `jj new` — the working copy is a commit |
-| `git rebase`        | `jj rebase`                           |
-| `git pull` / `push` | `jj git fetch` / `jj git push`        |
+Remotes:
 
-The trap is not `git commit`; that one announces itself as version control.
-It is `git mv` and `git rm` — operations that feel like touching files rather
-than touching history, and so never prompt the thought "check how this repo
-does VCS". Those are the ones that actually slip through. Note what the first
-two rows are saying: there is no `jj mv`, because jj snapshots the working copy
-on every command and detects renames by content afterwards. Plain `mv` is not a
-workaround, it is the whole procedure, and it is shorter than the git spelling
-you were reaching for.
+- `origin` — upstream, `Xerxes-2/clewdr`. Read-only for us.
+- `fork` — ours, `fodevac33/clewdr`. Push here.
 
-End a unit of work with a single command:
+Local `master` is upstream's `master` with our commits on top. To catch up,
+fetch and rebase rather than merge, so our changes stay a clean stack:
 
-    jj commit -m "..."
+    git fetch origin
+    git rebase origin/master
 
-Not `jj describe -m`. Both set the message, but `describe` leaves `@` open,
-and jj snapshots the working copy on every command, so the next file you edit
-silently amends a commit you already considered finished. `jj commit` closes
-the change and opens an empty one in the same step, which leaves nothing to
-remember at the start of the next task.
+Where an upstream commit supersedes one of our changes, resolve the conflict
+in upstream's favour and keep only what is still ours.
 
-If something did land in the wrong change, `jj split -r <rev> <paths>` pulls it
-back out by path, and `jj undo` reverses the last operation.
-
-Never pass `-i`/`--interactive` to anything, and never run `jj resolve`: they
-open a TUI that hangs a non-interactive session.
+Never pass `-i`/`--interactive` to anything, and never open an editor
+(`GIT_EDITOR=true git rebase --continue`): a TUI hangs a non-interactive
+session.
 
 ## Checks
 
